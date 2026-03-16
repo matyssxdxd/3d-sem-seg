@@ -8,7 +8,7 @@ from pathlib import Path
 import torch.nn.functional as F
 
 from plyfile import PlyData
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 
 try:
     import flash_attn
@@ -41,14 +41,24 @@ class LiDARNetDataset(Dataset):
 
         segment = np.asarray(v["sem"], dtype=np.int64)
 
-        point = {"coord": coord,
-                 "color": color,
-                 "normal": np.zeros_like(coord, dtype=np.float32),
+        max_points = 100000
+        if coord.shape[0] > max_points:
+            idx = np.random.choice(coord.shape[0], max_points, replace=False)
+            coord = coord[idx]
+            color = color[idx]
+            segment = segment[idx]
+
+        point = {
+            "coord": coord,
+            "color": color,
+            "normal": np.zeros_like(coord, dtype=np.float32),
+            "segment": segment,
         }
 
         if self.transform:
             point = self.transform(point)
-            point["segment"] = torch.as_tensor(segment, dtype=torch.long)
+
+        point["segment"] = torch.as_tensor(segment, dtype=torch.long)
 
         return point
 
@@ -69,7 +79,7 @@ def load_model(device, num_classes):
         model = utonia.load("utonia", repo_id="Pointcept/Utonia").to(device)
     else:
         custom_config = dict(
-            enc_patch_size=[4096 for _ in range(5)],
+            enc_patch_size=[1024 for _ in range(5)],
             enable_flash=False,
         )
         model = utonia.load(
@@ -166,15 +176,19 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     data_path = args.data_path 
-    num_classes = 30
+    num_classes = 31
 
     transform = utonia.transform.default(0.5)
 
-    train_dataset = LiDARNetDataset(path=data_path, split="train", transform=transform)
-    test_dataset = LiDARNetDataset(path=data_path, split="test", transform=transform)
+    dataset = LiDARNetDataset(path=data_path, split="train", transform=transform)
+
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
     train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, collate_fn=lambda x: x[0])
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=lambda x: x[0])
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, collate_fn=lambda x: x[0])
 
     model, probe = load_model(device, num_classes)
     optimizer = torch.optim.AdamW(probe.parameters(), lr=1e-3, weight_decay=1e-4)
@@ -182,7 +196,7 @@ if __name__ == "__main__":
     epochs = 20
     for epoch in range(epochs):
         train_loss = train(model, probe, train_loader, optimizer, device)
-        val_acc = evaluate(model, probe, test_loader, device)
+        val_acc = evaluate(model, probe, val_loader, device)
         print(f"epoch={epoch:03d}, train_loss={train_loss:.4f} val_acc={val_acc:.4f}")
 
     torch.save({"probe": probe.state_dict()}, f"{args.output_path}/utonia_lidarnet.pt")
