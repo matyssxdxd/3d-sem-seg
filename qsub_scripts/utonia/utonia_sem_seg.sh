@@ -26,7 +26,8 @@ cp $PBS_O_WORKDIR/Utonia/demo/utonia_sem_seg.py $TMPDIR
 cp $PBS_O_WORKDIR/data/scan_20_opt_denoised.ply $TMPDIR
 cp $PBS_O_WORKDIR/utonia_lidarnet.pt $TMPDIR
 
-python $TMPDIR/utonia_sem_seg.py --ckpt_path $TMPDIR/utonia_lidarnet.pt --input_path $TMPDIR/scan_20_opt_denoised.ply --output_path $TMPDIR/utonia_res.ply
+
+python $TMPDIR/utonia_sem_seg.py --input_path $TMPDIR/scan_20_opt_denoised.ply --output_file $TMPDIR/utonia_res.ply
 
 cp $TMPDIR/utonia_res.ply $PBS_O_WORKDIR
 
