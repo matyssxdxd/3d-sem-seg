@@ -8,9 +8,17 @@
 #PBS -N utonia_sem_seg
 #PBS -W x=HOSTLIST:wn74
 
-source /mnt/home/valtersve/anaconda3/etc/profile.d/conda.sh
-conda activate matiss_utonia
-export LD_LIBRARY_PATH=/mnt/home/valtersve/anaconda3/envs/matiss_utonia/lib:$LD_LIBRARY_PATH
+export MAMBA_EXE='/mnt/beegfs2/beegfs_scratch/valtersve/.mamba/bin/micromamba';
+export MAMBA_ROOT_PREFIX='/mnt/beegfs2/beegfs_scratch/valtersve/.mamba';
+__mamba_setup="$("$MAMBA_EXE" shell hook --shell bash --root-prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__mamba_setup"
+else
+    alias micromamba="$MAMBA_EXE"  # Fallback on help from micromamba activate
+fi
+unset __mamba_setup
+
+micromamba activate matiss_utonia
 
 echo Working Directory: $PBS_O_WORKDIR
 cd $PBS_O_WORKDIR
@@ -26,8 +34,7 @@ cp $PBS_O_WORKDIR/Utonia/demo/utonia_sem_seg.py $TMPDIR
 cp $PBS_O_WORKDIR/data/scan_20_opt_denoised.ply $TMPDIR
 cp $PBS_O_WORKDIR/utonia_lidarnet.pt $TMPDIR
 
-
-python $TMPDIR/utonia_sem_seg.py --input_path $TMPDIR/scan_20_opt_denoised.ply --output_file $TMPDIR/utonia_res.ply
+python $TMPDIR/utonia_sem_seg.py --input_path $TMPDIR/scan_20_opt_denoised.ply --output_path $TMPDIR/utonia_res.ply --ckpt_path $TMPDIR/utonia_lidarnet.pt
 
 cp $TMPDIR/utonia_res.ply $PBS_O_WORKDIR
 

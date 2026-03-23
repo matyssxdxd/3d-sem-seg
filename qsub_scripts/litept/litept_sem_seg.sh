@@ -20,6 +20,9 @@ unset __mamba_setup
 
 micromamba activate matiss_litept
 
+module load gcc/11.2.0
+export LD_LIBRARY_PATH=/mnt/opt/exp_soft/spack/opt/spack/linux-centos7-x86_64/gcc-8.3.0/gcc-11.2.0-hbazyfn6aayq2jlpog7uck7w5xa5nmm4/lib64:$LD_LIBRARY_PATH
+
 echo Working Directory: $PBS_O_WORKDIR
 cd $PBS_O_WORKDIR
 export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
@@ -38,7 +41,9 @@ cp $PBS_O_WORKDIR/data/scan_20_opt_denoised.ply $TMPDIR/LitePT/
 cd $TMPDIR/LitePT
 
 echo "Running inference..."
-python litept_sem_seg.py --input_path scan_20_opt_denoised.ply
+python litept_sem_seg.py --input_path scan_20_opt_denoised.ply --output_file $TMPDIR/litept_res.ply
+
+cp $TMPDIR/litept_res.ply $PBS_O_WORKDIR
 
 echo "Cleaning up..."
 rm -rf $TMPDIR
